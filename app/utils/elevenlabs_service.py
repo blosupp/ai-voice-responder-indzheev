@@ -4,8 +4,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
-VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID")
+ELEVENLABS_API_KEY = os.getenv("ELEVEN_API_KEY")
+VOICE_ID = os.getenv("ELEVEN_VOICE_ID")
 
 
 def generate_voice_mp3(text: str):
@@ -29,11 +29,14 @@ def generate_voice_mp3(text: str):
         response = requests.post(url, headers=headers, json=data)
         response.raise_for_status()
 
-        os.makedirs("/static", exist_ok=True)
-        with open("/static/response.mp3", "wb") as f:
+        static_path = Path(__file__).parent.parent / "static"
+        static_path.mkdir(parents=True, exist_ok=True)
+
+        output_path = static_path / "response.mp3"
+        with open(output_path, "wb") as f:
             f.write(response.content)
 
-        print("✅ mp3 сохранён в static/response.mp3")
+        print(f"✅ mp3 сохранён в {output_path}")
 
     except Exception as e:
         print("❌ Ошибка от ElevenLabs:", e)
