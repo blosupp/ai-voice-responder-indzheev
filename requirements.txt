@@ -1,5 +1,7 @@
+openai>=1.0
+requests
 flask
-openai
-elevenlabs
-twilio
 python-dotenv
+twilio
+pydub
+ffmpeg-python

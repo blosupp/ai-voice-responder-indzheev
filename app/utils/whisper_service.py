@@ -9,8 +9,8 @@ def transcribe_audio(file_path: str) -> str:
     try:
         with open(file_path, "rb") as audio_file:
             transcript = client.audio.transcriptions.create(
-                file=audio_file,
                 model="whisper-1",
+                file=audio_file,
                 response_format="text"
             )
         return transcript

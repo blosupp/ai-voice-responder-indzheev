@@ -1,15 +1,20 @@
 import requests
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
-ELEVENLABS_API_KEY = os.getenv("ELEVEN_API_KEY")
-VOICE_ID = os.getenv("ELEVEN_VOICE_ID")
-
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID")
 
 def generate_voice_mp3(text: str):
     print("🎙️ Генерация mp3 через ElevenLabs...")
+    print("📌 VOICE_ID:", VOICE_ID)
+
+    if not VOICE_ID or not ELEVENLABS_API_KEY:
+        print("❌ Проверь .env: VOICE_ID или API_KEY пустой")
+        return
 
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
     headers = {
@@ -36,7 +41,7 @@ def generate_voice_mp3(text: str):
         with open(output_path, "wb") as f:
             f.write(response.content)
 
-        print(f"✅ mp3 сохранён в {output_path}")
+        print("✅ Файл сохранён:", output_path)
 
     except Exception as e:
         print("❌ Ошибка от ElevenLabs:", e)
