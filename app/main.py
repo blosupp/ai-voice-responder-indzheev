@@ -11,6 +11,9 @@ from app.utils.whisper_service import transcribe_audio
 from utils.gpt_service import load_profile, generate_reply
 from utils.elevenlabs_service import generate_voice_mp3
 
+import subprocess
+import tempfile
+
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -45,29 +48,64 @@ def process_recording():
         return "❌ Нет записи", 400
 
     try:
-        # 1. Скачиваем аудио напрямую и сохраняем
+        # 1. Скачиваем mp3
         audio_url = f"{recording_url}.mp3"
         print("📥 Скачиваем:", audio_url)
         audio_data = requests.get(audio_url).content
 
-        tmp_audio_path = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False).name
-        with open(tmp_audio_path, "wb") as f:
+        # 2. Сохраняем исходный mp3
+        raw_path = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False).name
+        with open(raw_path, "wb") as f:
             f.write(audio_data)
-        print("📁 mp3 сохранён во временный файл:", tmp_audio_path)
+        print("📁 mp3 сохранён:", raw_path)
 
-        # 2. Распознаём
-        user_text = transcribe_audio(tmp_audio_path)
-        print("🗣️ Сказали:", user_text)
+        # 3. Готовим .wav путь
+        converted_path = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
 
-        # 3. Генерация
+        # 4. ffmpeg перекодировка
+        result = subprocess.run([
+            "C:\\tools\\ffmpeg\\bin\\ffmpeg.exe", "-y", "-i", raw_path,
+            "-ar", "16000", "-ac", "1", "-acodec", "pcm_s16le", converted_path
+        ], capture_output=True, text=True)
+
+        if result.returncode != 0:
+            print("❌ Ошибка ffmpeg:")
+            print("STDERR:", result.stderr)
+            print("STDOUT:", result.stdout)
+            return "Ошибка ffmpeg", 500
+        else:
+            print("✅ ffmpeg завершён успешно.")
+
+        tmp_audio_path = converted_path
+        print("🎛️ Готов к Whisper:", tmp_audio_path)
+
+        # 5. Whisper
+        try:
+            user_text = transcribe_audio(tmp_audio_path)
+            print("🗣️ Сказали:", user_text)
+            print("✅ Whisper завершён.")
+        except Exception as whisper_error:
+            print("❌ Whisper упал:", whisper_error)
+            return "Ошибка Whisper", 500
+        # 6. GPT
         profile = load_profile()
         reply_text = generate_reply(user_text, profile)
         print("🤖 Ответ GPT:", reply_text)
+        print("✅ GPT-ответ получен.")
 
-        # 4. Озвучка
+        # 7. Озвучка
         generate_voice_mp3(reply_text)
+        print("✅ Озвучка завершена.")
 
-        # 5. Отдача и продолжение диалога
+        # 8. Удаление временных файлов
+        try:
+            os.remove(raw_path)
+            os.remove(converted_path)
+            print("🧹 Временные файлы удалены.")
+        except Exception as cleanup_error:
+            print("⚠️ Ошибка при удалении файлов:", cleanup_error)
+
+        # 9. Ответ Twilio
         response = VoiceResponse()
         response.play(f"{NGROK_URL}/static/response.mp3")
         response.record(
